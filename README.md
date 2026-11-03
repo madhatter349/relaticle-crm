@@ -26,6 +26,7 @@ volumes (`o5iehgnyxsbhvcsdp5kxnikc_*`) were left in place.
 | `horizon` | same | queue worker (`artisan horizon`) |
 | `scheduler` | same | `artisan schedule:work` |
 | `reverb` | same | websocket server; the app proxies it at `/reverb` |
+| `ai-proxy` | built `relaticle-crm-ai-proxy:1` | nginx; adds the `x-opencode-session` header the assistant's upstream demands |
 | `postgres` | `postgres:17-alpine` | volume `postgres` |
 | `redis` | `redis:7-alpine` | append-only; sessions, cache and queue |
 
@@ -51,6 +52,27 @@ is the contract; the gate fails if the two drift apart.
 | `APP_URL` | `https://crm.forefrontinvestors.com`, no trailing slash |
 | `TRUSTED_HOSTS` | `localhost` — the container health check calls `localhost:8080/up` |
 | `MAIL_*` | Purelymail SMTP, mailbox `josh@forefrontinvestors.com`, port 587, TLS |
+
+### Assistant ("Rela")
+
+The chat is wired to DeepSeek V4.1 Flash through OpenCode Go. Three keys carry it:
+
+| Key | Value |
+|---|---|
+| `SELF_HOSTED_AI_URL` | `http://ai-proxy:8080/v1` — the in-stack proxy, not the vendor |
+| `SELF_HOSTED_AI_KEY` | an OpenCode API key (`oc_sk_…`), minted per install, not shared with other tooling |
+| `SELF_HOSTED_AI_MODELS` | `deepseek-v4.1-flash` |
+
+Why a proxy: OpenCode Go rejects any request without an `x-opencode-session` id
+(`400 MissingSessionID`), and Laravel's AI SDK can set a URL and a key but no
+request header. `docker/ai-proxy` adds that header, mints a per-request id when
+the caller sends none, forwards the `Authorization` it was given, and streams
+the reply. It stores no secret.
+
+This is a coding-agent subscription whose traffic is monitored, so it is the
+right fit for a low-volume single-workspace CRM and the wrong fit for heavy
+multi-tenant chat. `chat:models --probe=selfhosted:deepseek-v4.1-flash` proves
+tool-calling against the endpoint without waiting for a UI round trip.
 
 `APP_PANEL_DOMAIN` is deliberately unset: the panel is served at `/app` on the
 same host, which keeps one hostname for passkeys and for the websocket.

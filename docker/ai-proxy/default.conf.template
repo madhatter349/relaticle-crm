@@ -1,0 +1,44 @@
+# The AI SDK calls this as an OpenAI-compatible base URL (`/v1/...`); every
+# request is forwarded to OpenCode Go's OpenAI-compatible endpoint with the
+# session header the endpoint requires.
+#
+# The nginx image runs envsubst over this file at start-up, but only for
+# variables that exist in the environment — the `$http_*`/`$request_id` nginx
+# variables below survive untouched.
+
+# Callers that already send a session keep it; everyone else gets a fresh id per
+# request. Per-request ids cost some prompt-cache reuse on the upstream side and
+# buy isolation between conversations, which is the right trade for a CRM.
+map $http_x_opencode_session $oc_session {
+    default $http_x_opencode_session;
+    ""      $request_id;
+}
+
+server {
+    listen 8080;
+    server_tokens off;
+
+    location = /healthz {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ok\n";
+    }
+
+    # /v1/chat/completions -> https://opencode.ai/inference/go/openai/v1/chat/completions
+    location /v1/ {
+        proxy_pass https://opencode.ai/inference/go/openai/v1/;
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_set_header Host opencode.ai;
+        proxy_set_header Connection "";
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header x-opencode-session $oc_session;
+        proxy_set_header User-Agent "relaticle-crm/1.0";
+
+        # Rela streams replies as they are generated.
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}

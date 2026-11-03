@@ -15,6 +15,23 @@
 name: relaticle
 
 services:
+  ai-proxy:
+    # Header injector for the assistant's upstream: see docker/ai-proxy.
+    # Only app and horizon reach it; it holds no credentials itself.
+    build:
+      context: .
+      dockerfile: docker/ai-proxy/Dockerfile
+    image: relaticle-crm-ai-proxy:1
+    restart: unless-stopped
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   app:
     # Built from docker/Dockerfile: the pinned upstream image plus the "/" → /app
     # nginx snippet. The other three run the upstream image unchanged.

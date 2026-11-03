@@ -58,10 +58,10 @@ for svc, body in services.items():
     joined = "\n".join(body)
     if not re.search(r"^\s{4}image:\s*\S+", joined, re.M):
         fail(f"service {svc}: no image: (this repo pins upstream images)")
-    if re.search(r"^\s{4}build:", joined, re.M) and svc != "app":
+    if re.search(r"^\s{4}build:", joined, re.M) and svc not in ("app", "ai-proxy"):
         fail(
-            f"service {svc}: has build: — only app layers on the upstream image; "
-            "the workers run the published one"
+            f"service {svc}: has build: — only app and ai-proxy build here; "
+            "the rest run published images"
         )
     if re.search(r":latest\b", joined):
         fail(f"service {svc}: image tag is :latest — pin a release")
@@ -73,7 +73,7 @@ for svc, body in services.items():
     if re.search(r"^\s{4}container_name:", joined, re.M):
         fail(f"service {svc}: fixed container_name breaks Coolify redeploys")
 
-for required in ("app", "horizon", "scheduler", "reverb", "postgres", "redis"):
+for required in ("ai-proxy", "app", "horizon", "scheduler", "reverb", "postgres", "redis"):
     if required not in services:
         fail(f"no {required} service")
 
@@ -90,7 +90,7 @@ for svc in ("horizon", "scheduler", "reverb"):
 if "app" in services and 'AUTORUN_ENABLED: "true"' not in "\n".join(services["app"]):
     fail("app: AUTORUN_ENABLED must be true — it runs the migrations")
 
-# --- the one build: a thin layer over the pinned upstream image --------------
+# --- builds: a thin layer over the pinned image, plus a header injector ------
 app_body = "\n".join(services.get("app", []))
 if re.search(r"^\s{4}build:", app_body, re.M):
     if not re.search(r"^\s{4}image:\s*\S+", app_body, re.M):
@@ -113,6 +113,28 @@ if re.search(r"^\s{4}build:", app_body, re.M):
             )
         if "server-opts.d" not in body:
             fail("docker/Dockerfile must install its snippet in /etc/nginx/server-opts.d")
+
+proxy_body = "\n".join(services.get("ai-proxy", []))
+if re.search(r"^\s{4}build:", proxy_body, re.M):
+    proxy_df = Path("docker/ai-proxy/Dockerfile")
+    if not proxy_df.is_file():
+        fail("docker/ai-proxy/Dockerfile is missing but ai-proxy has a build:")
+    else:
+        body = proxy_df.read_text()
+        base = re.search(r"^FROM\s+(\S+)", body, re.M)
+        if not base or not base.group(1).startswith("nginx:"):
+            fail("docker/ai-proxy/Dockerfile must FROM nginx:<pinned tag>")
+        if "/etc/nginx/templates" not in body:
+            fail("docker/ai-proxy/Dockerfile must copy its config into /etc/nginx/templates")
+    conf = Path("docker/ai-proxy/default.conf.template")
+    if not conf.is_file():
+        fail("docker/ai-proxy/default.conf.template is missing")
+    else:
+        body = conf.read_text()
+        if "x-opencode-session" not in body:
+            fail("ai-proxy must send x-opencode-session — the upstream rejects requests without it")
+        if "opencode.ai/inference/go/openai/v1/" not in body:
+            fail("ai-proxy must proxy to the OpenCode Go OpenAI-compatible endpoint")
 
 redirect = Path("docker/root-redirect.conf")
 if not redirect.is_file():
