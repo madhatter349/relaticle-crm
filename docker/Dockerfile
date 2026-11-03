@@ -22,4 +22,8 @@ RUN php /tmp/patch-ai-config.php && rm /tmp/patch-ai-config.php
 # "Companies" reads as "Properties" for a real-estate book.
 COPY docker/patch-company-labels.php /tmp/patch-company-labels.php
 RUN php /tmp/patch-company-labels.php && rm /tmp/patch-company-labels.php
+
+# Phone number in the people table on a property page.
+COPY docker/patch-phone-column.php /tmp/patch-phone-column.php
+RUN php /tmp/patch-phone-column.php && rm /tmp/patch-phone-column.php
 USER www-data

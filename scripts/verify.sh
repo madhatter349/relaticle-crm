@@ -143,6 +143,11 @@ if re.search(r"^\s{4}build:", app_body, re.M):
         fail("docker/patch-company-labels.php is missing — the panel would fall back to Companies")
     elif "Properties" not in labels.read_text():
         fail("docker/patch-company-labels.php no longer renames Companies to Properties")
+    phone = Path("docker/patch-phone-column.php")
+    if not phone.is_file():
+        fail("docker/patch-phone-column.php is missing — contacts lose their phone column")
+    elif "PHONE_NUMBER" not in phone.read_text():
+        fail("docker/patch-phone-column.php no longer adds the phone column")
 
 proxy_body = "\n".join(services.get("ai-proxy", []))
 if re.search(r"^\s{4}build:", proxy_body, re.M):
