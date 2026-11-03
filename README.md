@@ -22,12 +22,17 @@ volumes (`o5iehgnyxsbhvcsdp5kxnikc_*`) were left in place.
 
 | Service | Image | Notes |
 |---|---|---|
-| `app` | `ghcr.io/relaticle/relaticle:3.8.0` | nginx + PHP-FPM on :8080, runs migrations on boot |
+| `app` | built `relaticle-crm-app:3.8.0` | upstream image + one nginx snippet, on :8080; runs migrations on boot |
 | `horizon` | same | queue worker (`artisan horizon`) |
 | `scheduler` | same | `artisan schedule:work` |
 | `reverb` | same | websocket server; the app proxies it at `/reverb` |
 | `postgres` | `postgres:17-alpine` | volume `postgres` |
 | `redis` | `redis:7-alpine` | append-only; sessions, cache and queue |
+
+`app` is the only service with a `build:`. It is `FROM ghcr.io/relaticle/relaticle:<RELATICLE_VERSION>`
+plus `docker/root-redirect.conf`, which sends `/` to `/app` — the image otherwise
+serves Relaticle's own marketing homepage there. A bind mount would be dropped by
+Coolify, hence the thin image. The workers run the published image untouched.
 
 Only `app` is exposed to Traefik, on 8080. Nothing publishes a host port —
 Coolify owns those. Migrations run only in `app` (`AUTORUN_ENABLED`), so a

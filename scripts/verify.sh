@@ -58,8 +58,11 @@ for svc, body in services.items():
     joined = "\n".join(body)
     if not re.search(r"^\s{4}image:\s*\S+", joined, re.M):
         fail(f"service {svc}: no image: (this repo pins upstream images)")
-    if re.search(r"^\s{4}build:", joined, re.M):
-        fail(f"service {svc}: has build: — not a source build")
+    if re.search(r"^\s{4}build:", joined, re.M) and svc != "app":
+        fail(
+            f"service {svc}: has build: — only app layers on the upstream image; "
+            "the workers run the published one"
+        )
     if re.search(r":latest\b", joined):
         fail(f"service {svc}: image tag is :latest — pin a release")
     if re.search(r"^\s{4}ports:", joined, re.M):
@@ -86,6 +89,38 @@ for svc in ("horizon", "scheduler", "reverb"):
         fail(f"{svc}: AUTORUN_ENABLED must be false (only app migrates)")
 if "app" in services and 'AUTORUN_ENABLED: "true"' not in "\n".join(services["app"]):
     fail("app: AUTORUN_ENABLED must be true — it runs the migrations")
+
+# --- the one build: a thin layer over the pinned upstream image --------------
+app_body = "\n".join(services.get("app", []))
+if re.search(r"^\s{4}build:", app_body, re.M):
+    if not re.search(r"^\s{4}image:\s*\S+", app_body, re.M):
+        fail("app: build: without image: — compose has no tag to give the build")
+    dockerfile = Path("docker/Dockerfile")
+    if not dockerfile.is_file():
+        fail("docker/Dockerfile is missing but app has a build: context")
+    else:
+        body = dockerfile.read_text()
+        base = re.search(r"^FROM\s+(\S+)", body, re.M)
+        if not base or not base.group(1).startswith("ghcr.io/relaticle/relaticle:"):
+            fail(
+                "docker/Dockerfile must FROM ghcr.io/relaticle/relaticle:<version> "
+                "— this repo never builds Relaticle from source"
+            )
+        elif "${RELATICLE_VERSION" not in base.group(1):
+            fail(
+                "docker/Dockerfile must take its base version from "
+                "${RELATICLE_VERSION}, so a bump moves image and build together"
+            )
+        if "server-opts.d" not in body:
+            fail("docker/Dockerfile must install its snippet in /etc/nginx/server-opts.d")
+
+redirect = Path("docker/root-redirect.conf")
+if not redirect.is_file():
+    fail("docker/root-redirect.conf is missing — the build would be a no-op")
+else:
+    conf = redirect.read_text()
+    if "location = /" not in conf or "return 302 /app" not in conf:
+        fail('docker/root-redirect.conf must redirect exactly "/" to /app')
 
 # --- env contract ------------------------------------------------------------
 referenced = set(re.findall(r"\$\{([A-Z0-9_]+)", text))

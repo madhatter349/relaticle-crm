@@ -16,7 +16,14 @@ name: relaticle
 
 services:
   app:
-    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    # Built from docker/Dockerfile: the pinned upstream image plus the "/" → /app
+    # nginx snippet. The other three run the upstream image unchanged.
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        RELATICLE_VERSION: ${RELATICLE_VERSION:-3.8.0}
+    image: relaticle-crm-app:${RELATICLE_VERSION:-3.8.0}
     restart: unless-stopped
     environment:
       APP_NAME: ${APP_NAME:-Relaticle}
