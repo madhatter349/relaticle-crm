@@ -148,6 +148,8 @@ if re.search(r"^\s{4}build:", app_body, re.M):
         fail("docker/patch-phone-column.php is missing — contacts lose their phone column")
     elif "PHONE_NUMBER" not in phone.read_text():
         fail("docker/patch-phone-column.php no longer adds the phone column")
+    elif "JOB_TITLE" in phone.read_text().split("$to = ")[1][:120]:
+        fail("docker/patch-phone-column.php must not keep the job title column")
 
 proxy_body = "\n".join(services.get("ai-proxy", []))
 if re.search(r"^\s{4}build:", proxy_body, re.M):

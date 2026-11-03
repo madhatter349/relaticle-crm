@@ -1,10 +1,12 @@
 <?php
 
 /**
- * Show the phone number in the People table on a property page.
+ * Show the phone number, and drop the job title, in the People table on a
+ * property page.
  *
  * Upstream's related-record column set is name + job title + emails. For an
- * outreach book the number is the point of the row, so phone joins the list.
+ * outreach book the number is the point of the row and the job title is noise,
+ * so the set becomes name + email + phone.
  *
  * Guarded: if upstream reshuffles this file the build fails instead of quietly
  * shipping a table without the column.
@@ -19,7 +21,7 @@ if ($source === false) {
 }
 
 $from = '[PeopleField::JOB_TITLE, PeopleField::EMAILS]';
-$to = '[PeopleField::JOB_TITLE, PeopleField::EMAILS, PeopleField::PHONE_NUMBER]';
+$to = '[PeopleField::EMAILS, PeopleField::PHONE_NUMBER]';
 
 if (! str_contains($source, $from)) {
     fwrite(STDERR, "patch-phone-column: expected column list not found in {$path}\n");
@@ -31,4 +33,4 @@ if (file_put_contents($path, str_replace($from, $to, $source, $count)) === false
     exit(1);
 }
 
-echo "patch-phone-column: phone added to related people tables\n";
+echo "patch-phone-column: related people table = name + email + phone\n";
