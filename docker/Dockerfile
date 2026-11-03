@@ -26,4 +26,14 @@ RUN php /tmp/patch-company-labels.php && rm /tmp/patch-company-labels.php
 # Phone number in the people table on a property page.
 COPY docker/patch-phone-column.php /tmp/patch-phone-column.php
 RUN php /tmp/patch-phone-column.php && rm /tmp/patch-phone-column.php
+
+# One-click "Log call" on a property: stamps today, pushes the follow-up a week.
+COPY docker/app/LogCallAction.php /var/www/html/app/Filament/Actions/LogCallAction.php
+COPY docker/patch-log-call-action.php /tmp/patch-log-call-action.php
+RUN php /tmp/patch-log-call-action.php && rm /tmp/patch-log-call-action.php
+
+# Previous/next arrows that walk the call queue.
+COPY docker/app/RecordNavAction.php /var/www/html/app/Filament/Actions/RecordNavAction.php
+COPY docker/patch-record-nav.php /tmp/patch-record-nav.php
+RUN php /tmp/patch-record-nav.php && rm /tmp/patch-record-nav.php
 USER www-data

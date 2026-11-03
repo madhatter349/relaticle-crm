@@ -150,6 +150,28 @@ if re.search(r"^\s{4}build:", app_body, re.M):
         fail("docker/patch-phone-column.php no longer adds the phone column")
     elif "JOB_TITLE" in phone.read_text().split("$to = ")[1][:120]:
         fail("docker/patch-phone-column.php must not keep the job title column")
+    action = Path("docker/app/LogCallAction.php")
+    if not action.is_file():
+        fail("docker/app/LogCallAction.php is missing — the Log call button disappears")
+    else:
+        body = action.read_text()
+        for required in ("last_contacted", "next_follow_up", "outreach_stage", "saveCustomFieldValue"):
+            if required not in body:
+                fail(f"LogCallAction must touch {required}")
+        if "saveCustomFields(" in body:
+            fail("LogCallAction must not use saveCustomFields — it clears unset fields")
+    nav = Path("docker/app/RecordNavAction.php")
+    if not nav.is_file():
+        fail("docker/app/RecordNavAction.php is missing — the arrows disappear")
+    else:
+        nav_body = nav.read_text()
+        for required in ("next_follow_up", "nulls last", "getUrl('view'"):
+            if required not in nav_body:
+                fail(f"RecordNavAction must order by next_follow_up and link to the view page ({required})")
+    if Path("docker/patch-record-nav.php").is_file():
+        nav_patch = Path("docker/patch-record-nav.php").read_text()
+        if "exit(1)" not in nav_patch:
+            fail("patch-record-nav.php must fail the build when its anchor moves")
 
 proxy_body = "\n".join(services.get("ai-proxy", []))
 if re.search(r"^\s{4}build:", proxy_body, re.M):
