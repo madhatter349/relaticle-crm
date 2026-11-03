@@ -90,6 +90,22 @@ for svc in ("horizon", "scheduler", "reverb"):
 if "app" in services and 'AUTORUN_ENABLED: "true"' not in "\n".join(services["app"]):
     fail("app: AUTORUN_ENABLED must be true — it runs the migrations")
 
+# One image for the four PHP services. The chat job runs on horizon, so a worker
+# pulling the unpatched upstream directly would keep hitting the wrong endpoint.
+app_image = re.search(r"^\s{4}image:\s*(\S+)", "\n".join(services.get("app", [])), re.M)
+if app_image:
+    for svc in ("horizon", "scheduler", "reverb"):
+        if svc not in services:
+            continue
+        worker_image = re.search(r"^\s{4}image:\s*(\S+)", "\n".join(services[svc]), re.M)
+        if not worker_image:
+            continue
+        if worker_image.group(1) != app_image.group(1):
+            fail(
+                f"{svc}: image {worker_image.group(1)!r} differs from app "
+                f"{app_image.group(1)!r} — workers must run the patched image"
+            )
+
 # --- builds: a thin layer over the pinned image, plus a header injector ------
 app_body = "\n".join(services.get("app", []))
 if re.search(r"^\s{4}build:", app_body, re.M):

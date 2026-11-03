@@ -107,7 +107,9 @@ services:
       start_period: 120s
 
   horizon:
-    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    # Same image as app on purpose: the chat job runs here, so a worker built
+    # from the unpatched upstream would keep talking to the wrong AI endpoint.
+    image: relaticle-crm-app:${RELATICLE_VERSION:-3.8.0}
     restart: unless-stopped
     command: ["php", "/var/www/html/artisan", "horizon"]
     stop_signal: SIGTERM
@@ -160,7 +162,7 @@ services:
       start_period: 10s
 
   scheduler:
-    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    image: relaticle-crm-app:${RELATICLE_VERSION:-3.8.0}
     restart: unless-stopped
     command: ["php", "/var/www/html/artisan", "schedule:work"]
     stop_signal: SIGTERM
@@ -206,7 +208,7 @@ services:
       start_period: 10s
 
   reverb:
-    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    image: relaticle-crm-app:${RELATICLE_VERSION:-3.8.0}
     restart: unless-stopped
     command: ["php", "/var/www/html/artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
     stop_signal: SIGTERM

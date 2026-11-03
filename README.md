@@ -23,17 +23,20 @@ volumes (`o5iehgnyxsbhvcsdp5kxnikc_*`) were left in place.
 | Service | Image | Notes |
 |---|---|---|
 | `app` | built `relaticle-crm-app:3.8.0` | upstream image + one nginx snippet, on :8080; runs migrations on boot |
-| `horizon` | same | queue worker (`artisan horizon`) |
-| `scheduler` | same | `artisan schedule:work` |
-| `reverb` | same | websocket server; the app proxies it at `/reverb` |
+| `horizon` | same built image | queue worker (`artisan horizon`) — chat turns run here |
+| `scheduler` | same built image | `artisan schedule:work` |
+| `reverb` | same built image | websocket server; the app proxies it at `/reverb` |
 | `ai-proxy` | built `relaticle-crm-ai-proxy:1` | nginx; adds the `x-opencode-session` header the assistant's upstream demands |
 | `postgres` | `postgres:17-alpine` | volume `postgres` |
 | `redis` | `redis:7-alpine` | append-only; sessions, cache and queue |
 
-`app` is the only service with a `build:`. It is `FROM ghcr.io/relaticle/relaticle:<RELATICLE_VERSION>`
-plus `docker/root-redirect.conf`, which sends `/` to `/app` — the image otherwise
-serves Relaticle's own marketing homepage there. A bind mount would be dropped by
-Coolify, hence the thin image. The workers run the published image untouched.
+All four PHP services run one image, built `FROM ghcr.io/relaticle/relaticle:<RELATICLE_VERSION>`.
+It adds `docker/root-redirect.conf` (sends `/` to `/app`; the upstream image serves
+its marketing homepage there) and `docker/patch-ai-config.php` (switches the
+self-hosted AI provider to the chat-completions driver the gateway accepts, failing
+the build if upstream's config moves). A bind mount would be dropped by Coolify,
+hence the thin image. The workers use the same build because the chat job runs on
+`horizon` — a worker on the unpatched upstream would keep posting to `/responses`.
 
 Only `app` is exposed to Traefik, on 8080. Nothing publishes a host port —
 Coolify owns those. Migrations run only in `app` (`AUTORUN_ENABLED`), so a
