@@ -138,6 +138,11 @@ if re.search(r"^\s{4}build:", app_body, re.M):
         fail("docker/patch-ai-config.php no longer switches the selfhosted driver")
     elif "exit(1)" not in patch.read_text():
         fail("docker/patch-ai-config.php must fail the build when upstream's config moves")
+    labels = Path("docker/patch-company-labels.php")
+    if not labels.is_file():
+        fail("docker/patch-company-labels.php is missing — the panel would fall back to Companies")
+    elif "Properties" not in labels.read_text():
+        fail("docker/patch-company-labels.php no longer renames Companies to Properties")
 
 proxy_body = "\n".join(services.get("ai-proxy", []))
 if re.search(r"^\s{4}build:", proxy_body, re.M):

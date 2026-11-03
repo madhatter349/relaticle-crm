@@ -18,4 +18,8 @@ COPY docker/patch-ai-config.php /tmp/patch-ai-config.php
 # Guarded: exits non-zero when upstream's config moves, so a version bump that
 # invalidates the patch fails the deploy instead of shipping a broken assistant.
 RUN php /tmp/patch-ai-config.php && rm /tmp/patch-ai-config.php
+
+# "Companies" reads as "Properties" for a real-estate book.
+COPY docker/patch-company-labels.php /tmp/patch-company-labels.php
+RUN php /tmp/patch-company-labels.php && rm /tmp/patch-company-labels.php
 USER www-data
