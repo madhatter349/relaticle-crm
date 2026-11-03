@@ -32,6 +32,10 @@ COPY docker/app/LogCallAction.php /var/www/html/app/Filament/Actions/LogCallActi
 COPY docker/patch-log-call-action.php /tmp/patch-log-call-action.php
 RUN php /tmp/patch-log-call-action.php && rm /tmp/patch-log-call-action.php
 
+# Phone numbers shown as (718) 993-2280, stored as +17189932280.
+COPY docker/patch-phone-format.php /tmp/patch-phone-format.php
+RUN php /tmp/patch-phone-format.php && rm /tmp/patch-phone-format.php
+
 # Previous/next arrows that walk the call queue.
 COPY docker/app/RecordNavAction.php /var/www/html/app/Filament/Actions/RecordNavAction.php
 COPY docker/patch-record-nav.php /tmp/patch-record-nav.php

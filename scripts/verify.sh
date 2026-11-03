@@ -168,6 +168,14 @@ if re.search(r"^\s{4}build:", app_body, re.M):
         for required in ("next_follow_up", "nulls last", "getUrl('view'"):
             if required not in nav_body:
                 fail(f"RecordNavAction must order by next_follow_up and link to the view page ({required})")
+    fmt = Path("docker/patch-phone-format.php")
+    if not fmt.is_file():
+        fail("docker/patch-phone-format.php is missing — phones render as raw digits")
+    else:
+        body = fmt.read_text()
+        for required in ("formatNational", "displayText", "'US'"):
+            if required not in body:
+                fail(f"patch-phone-format.php must format national numbers in US format ({required})")
     if Path("docker/patch-record-nav.php").is_file():
         nav_patch = Path("docker/patch-record-nav.php").read_text()
         if "exit(1)" not in nav_patch:
