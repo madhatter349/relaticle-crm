@@ -11,6 +11,7 @@ cd "$(dirname "$0")/.."
 
 python3 - <<'PY'
 import re
+import tempfile
 import subprocess
 import sys
 from pathlib import Path
@@ -169,12 +170,24 @@ except FileNotFoundError:
     have_compose = False
 
 if have_compose:
-    proc = subprocess.run(
-        ["docker", "compose", "--env-file", ".env.example", "config", "-q"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    # `.env.example` deliberately leaves the secrets blank, and the compose file
+    # uses ${VAR:?} so a real deploy fails loudly when one is unset. Parse with
+    # throwaway values so the check tests the file, not the blanks.
+    with tempfile.NamedTemporaryFile("w", suffix=".env", delete=False) as tmp:
+        tmp.write(env_text)
+        for key in ("APP_KEY", "DB_PASSWORD", "REVERB_APP_SECRET", "MAIL_PASSWORD"):
+            if not re.search(rf"^{key}=\S", env_text, re.M):
+                tmp.write(f"{key}=verify-dummy-value\n")
+        tmp_path = tmp.name
+    try:
+        proc = subprocess.run(
+            ["docker", "compose", "--env-file", tmp_path, "config", "-q"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
     if proc.returncode != 0:
         fail(f"docker compose config rejected the file:\n{proc.stderr.strip()}")
 else:

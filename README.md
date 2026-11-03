@@ -12,7 +12,7 @@ vendored; the containers run the published upstream image.
 | URL | <https://crm.forefrontinvestors.com> — CRM at `/app`, instance admin at `/sysadmin` |
 | Coolify app | `d0lmqwpz0fc2usknvwglofcq` (project Relaticle, environment production) |
 | Repo | public, `madhatter349/relaticle-crm`, pulled by Coolify |
-| Redeploy | push to `main` — GitHub webhook hits Coolify |
+| Redeploy | push to `main` — GitHub webhook `web` (id 706684470) POSTs to Coolify's manual webhook |
 
 This hostname replaced a Twenty CRM deployment on 2026-11-03. Its database dump
 and storage archive are on the VPS in `/root/backups/twenty-*`, and its named
@@ -75,6 +75,10 @@ same host, which keeps one hostname for passkeys and for the websocket.
 
   Pick the `app` panel; the account is auto-verified. `php artisan sysadmin:create`
   makes the instance-wide administrator instead (`/sysadmin`).
+- **Deploy:** `git push origin main`. The GitHub `push` webhook calls
+  `https://382972.xyz/webhooks/source/github/events/manual?app=d0lmqwpz0fc2usknvwglofcq`
+  with the app's `manual_webhook_secret_github`, so Coolify redeploys the commit.
+  If the webhook secret is ever rotated, update the hook too.
 - **Upgrade:** bump `RELATICLE_VERSION` in Coolify, then redeploy. Migrations run
   on app boot; the old container keeps serving until the new one is healthy.
 - **Roll back:** set `RELATICLE_VERSION` back and redeploy. Migrations are
