@@ -61,6 +61,12 @@ services:
       MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Relaticle}
+      # The "Rela" assistant reads its models from here: an OpenAI-compatible
+      # endpoint plus the ids to expose. All three empty = no model in the
+      # picker. Chat turns run on this container and on horizon.
+      SELF_HOSTED_AI_URL: ${SELF_HOSTED_AI_URL:-}
+      SELF_HOSTED_AI_KEY: ${SELF_HOSTED_AI_KEY:-}
+      SELF_HOSTED_AI_MODELS: ${SELF_HOSTED_AI_MODELS:-}
       # serversideup/php Laravel automations: migrate once, on the web container.
       AUTORUN_ENABLED: "true"
       AUTORUN_LARAVEL_MIGRATION: "true"
@@ -119,6 +125,10 @@ services:
       MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Relaticle}
+      # Chat turns are queued, so the worker needs the same assistant config.
+      SELF_HOSTED_AI_URL: ${SELF_HOSTED_AI_URL:-}
+      SELF_HOSTED_AI_KEY: ${SELF_HOSTED_AI_KEY:-}
+      SELF_HOSTED_AI_MODELS: ${SELF_HOSTED_AI_MODELS:-}
       # Workers must not race the web container's migrations.
       AUTORUN_ENABLED: "false"
     volumes:
