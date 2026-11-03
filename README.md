@@ -75,10 +75,11 @@ same host, which keeps one hostname for passkeys and for the websocket.
 
   Pick the `app` panel; the account is auto-verified. `php artisan sysadmin:create`
   makes the instance-wide administrator instead (`/sysadmin`).
-- **Deploy:** `git push origin main`. The GitHub `push` webhook calls
-  `https://382972.xyz/webhooks/source/github/events/manual?app=d0lmqwpz0fc2usknvwglofcq`
-  with the app's `manual_webhook_secret_github`, so Coolify redeploys the commit.
-  If the webhook secret is ever rotated, update the hook too.
+- **Deploy:** `git push origin main`. The GitHub `push` webhook posts to
+  `https://382972.xyz/webhooks/source/github/events/manual` and signs the body
+  with the app's `manual_webhook_secret_github`, which Coolify requires — an
+  unsigned delivery is answered `No matching application or invalid signature`.
+  If that secret is rotated in the UI, update the GitHub hook to match.
 - **Upgrade:** bump `RELATICLE_VERSION` in Coolify, then redeploy. Migrations run
   on app boot; the old container keeps serving until the new one is healthy.
 - **Roll back:** set `RELATICLE_VERSION` back and redeploy. Migrations are
