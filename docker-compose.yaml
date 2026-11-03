@@ -1,0 +1,238 @@
+# Relaticle CRM — the deployment half of https://github.com/relaticle/relaticle.
+#
+# Runs the published upstream image (app + queue worker + scheduler + websocket)
+# with its own Postgres and Redis. No Relaticle source is vendored here: this
+# repo holds the stack, the env contract and the gate, so a redeploy is a push.
+#
+# Deployed by Coolify (docker compose build pack). Coolify injects the Traefik
+# router from the app's domain and talks to `app` on 8080, so nothing here
+# publishes a host port.
+#
+# Upstream reference: compose.yml in relaticle/relaticle@v3.8.0. Differences:
+# no host port, image tag pinned via RELATICLE_VERSION, and the env is trimmed to
+# what this install actually sets (see .env.example and the README).
+
+name: relaticle
+
+services:
+  app:
+    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME:-Relaticle}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY is required}
+      APP_URL: ${APP_URL:?APP_URL is required}
+      APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
+      # The health check calls the container on localhost, so it must stay listed.
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost}
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: ${LOG_LEVEL:-warning}
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-relaticle}
+      DB_USERNAME: ${DB_USERNAME:-relaticle}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "null"
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      QUEUE_CONNECTION: redis
+      BROADCAST_CONNECTION: reverb
+      BROADCAST_REVERB_HOST: reverb
+      BROADCAST_REVERB_PORT: "8080"
+      BROADCAST_REVERB_SCHEME: http
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:?REVERB_APP_SECRET is required}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Relaticle}
+      # serversideup/php Laravel automations: migrate once, on the web container.
+      AUTORUN_ENABLED: "true"
+      AUTORUN_LARAVEL_MIGRATION: "true"
+      AUTORUN_LARAVEL_MIGRATION_ISOLATION: "true"
+    # Coolify routes the domain here; never add a host port mapping.
+    expose:
+      - "8080"
+    volumes:
+      - storage:/var/www/html/storage/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # First boot runs every migration; that is the slow part.
+      start_period: 120s
+
+  horizon:
+    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    restart: unless-stopped
+    command: ["php", "/var/www/html/artisan", "horizon"]
+    stop_signal: SIGTERM
+    environment:
+      APP_NAME: ${APP_NAME:-Relaticle}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY is required}
+      APP_URL: ${APP_URL:?APP_URL is required}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-relaticle}
+      DB_USERNAME: ${DB_USERNAME:-relaticle}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "null"
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      BROADCAST_CONNECTION: reverb
+      BROADCAST_REVERB_HOST: reverb
+      BROADCAST_REVERB_PORT: "8080"
+      BROADCAST_REVERB_SCHEME: http
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:?REVERB_APP_SECRET is required}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Relaticle}
+      # Workers must not race the web container's migrations.
+      AUTORUN_ENABLED: "false"
+    volumes:
+      - storage:/var/www/html/storage/app
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "healthcheck-horizon"]
+      start_period: 10s
+
+  scheduler:
+    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    restart: unless-stopped
+    command: ["php", "/var/www/html/artisan", "schedule:work"]
+    stop_signal: SIGTERM
+    environment:
+      APP_NAME: ${APP_NAME:-Relaticle}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY is required}
+      APP_URL: ${APP_URL:?APP_URL is required}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-relaticle}
+      DB_USERNAME: ${DB_USERNAME:-relaticle}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "null"
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      BROADCAST_CONNECTION: reverb
+      BROADCAST_REVERB_HOST: reverb
+      BROADCAST_REVERB_PORT: "8080"
+      BROADCAST_REVERB_SCHEME: http
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:?REVERB_APP_SECRET is required}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Relaticle}
+      AUTORUN_ENABLED: "false"
+    volumes:
+      - storage:/var/www/html/storage/app
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "healthcheck-schedule"]
+      start_period: 10s
+
+  reverb:
+    image: ghcr.io/relaticle/relaticle:${RELATICLE_VERSION:-3.8.0}
+    restart: unless-stopped
+    command: ["php", "/var/www/html/artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    stop_signal: SIGTERM
+    environment:
+      APP_NAME: ${APP_NAME:-Relaticle}
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?APP_KEY is required}
+      APP_URL: ${APP_URL:?APP_URL is required}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-relaticle}
+      DB_USERNAME: ${DB_USERNAME:-relaticle}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: "null"
+      CACHE_STORE: redis
+      REVERB_APP_SECRET: ${REVERB_APP_SECRET:?REVERB_APP_SECRET is required}
+      # The browser reaches the socket through `app` at /reverb on the same
+      # origin, so no second host, port or certificate is involved.
+      AUTORUN_ENABLED: "false"
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "healthcheck-reverb"]
+      start_period: 10s
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-relaticle}
+      POSTGRES_USER: ${DB_USERNAME:-relaticle}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-relaticle} -d ${DB_DATABASE:-relaticle}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Sessions, cache and the job queue all live here: keep every key.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres:
+  redis:
+  storage:
