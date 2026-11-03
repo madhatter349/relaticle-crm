@@ -1,4 +1,8 @@
-# The published Relaticle image plus one nginx snippet: "/" redirects to /app.
+# The published Relaticle image plus two small changes:
+#
+#   1. "/" redirects to /app (the image serves its marketing homepage there).
+#   2. The "self-hosted" AI provider speaks chat/completions instead of the
+#      Responses API, because our upstream gateway only routes the former.
 #
 # Nothing else is changed, so this stays a thin layer over the pinned upstream
 # release — bump RELATICLE_VERSION in Coolify and the base moves with it.
@@ -10,4 +14,8 @@ FROM ghcr.io/relaticle/relaticle:${RELATICLE_VERSION}
 
 USER root
 COPY docker/root-redirect.conf /etc/nginx/server-opts.d/00-root-redirect.conf
+COPY docker/patch-ai-config.php /tmp/patch-ai-config.php
+# Guarded: exits non-zero when upstream's config moves, so a version bump that
+# invalidates the patch fails the deploy instead of shipping a broken assistant.
+RUN php /tmp/patch-ai-config.php && rm /tmp/patch-ai-config.php
 USER www-data

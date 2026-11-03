@@ -113,6 +113,15 @@ if re.search(r"^\s{4}build:", app_body, re.M):
             )
         if "server-opts.d" not in body:
             fail("docker/Dockerfile must install its snippet in /etc/nginx/server-opts.d")
+        if "patch-ai-config.php" not in body:
+            fail("docker/Dockerfile must run docker/patch-ai-config.php")
+    patch = Path("docker/patch-ai-config.php")
+    if not patch.is_file():
+        fail("docker/patch-ai-config.php is missing — the assistant needs the chat-completions driver")
+    elif "openai-compatible" not in patch.read_text():
+        fail("docker/patch-ai-config.php no longer switches the selfhosted driver")
+    elif "exit(1)" not in patch.read_text():
+        fail("docker/patch-ai-config.php must fail the build when upstream's config moves")
 
 proxy_body = "\n".join(services.get("ai-proxy", []))
 if re.search(r"^\s{4}build:", proxy_body, re.M):
